@@ -13,7 +13,7 @@ ssm ls
 
 Params starting with `/my-app`
 ```
-ssm ls my-app
+ssm ls /my-app
 ```
 
 #### Get the value of a param
