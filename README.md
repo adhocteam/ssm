@@ -1,8 +1,6 @@
 ## SSM
 ### About
-* An intuitive command line interface to [AWS SSM Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html) 
-* Writes params as `SecretString`
-* Does not support complex workflows
+This is a command line interface to [AWS SSM Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html).
 
 ### Usage
 #### List params
