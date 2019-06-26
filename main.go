@@ -92,7 +92,6 @@ func set(key, val string) error {
 	ssmsvc := ssm.New(sess, aws.NewConfig())
 	overwrite := true
 	ptype := "SecureString"
-	log.Println(key, val)
 	_, err := ssmsvc.PutParameter(&ssm.PutParameterInput{
 		Name:      &key,
 		Value:     &val,
