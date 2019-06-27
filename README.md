@@ -9,7 +9,7 @@ All parameters:
 ssm ls
 ```
 
-Params starting with `/my-app`
+Params containing `/my-app`
 ```
 ssm ls /my-app
 ```
