@@ -117,7 +117,7 @@ func list(s string) ([]string, error) {
 		}
 		for _, p := range desc.Parameters {
 			if p.Name != nil {
-				if s == "" || strings.Contains(*p.Name, s) {
+				if s == "" || strings.Contains(strings.ToUpper(*p.Name), strings.ToUpper(s)) {
 					params = append(params, *p.Name)
 				}
 			}
