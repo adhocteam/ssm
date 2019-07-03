@@ -89,7 +89,9 @@ func rm(key string) error {
 }
 
 func set(key, val string) error {
-	sess := session.Must(session.NewSession())
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
 
 	ssmsvc := ssm.New(sess, aws.NewConfig())
 	overwrite := true
@@ -104,8 +106,10 @@ func set(key, val string) error {
 }
 
 func list(s string) ([]string, error) {
-	sess := session.Must(session.NewSession())
 
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
 	ssmsvc := ssm.New(sess, aws.NewConfig())
 	params := make([]string, 0)
 	var next string
@@ -138,7 +142,9 @@ func list(s string) ([]string, error) {
 
 func get(key string) (string, error) {
 
-	sess := session.Must(session.NewSession())
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
 
 	ssmsvc := ssm.New(sess, aws.NewConfig())
 	withDecryption := true
