@@ -77,7 +77,9 @@ func main() {
 }
 
 func rm(key string) error {
-	sess := session.Must(session.NewSession())
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
 
 	ssmsvc := ssm.New(sess, aws.NewConfig())
 	_, err := ssmsvc.DeleteParameter(&ssm.DeleteParameterInput{
