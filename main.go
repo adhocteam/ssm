@@ -46,7 +46,7 @@ func main() {
 				if secrets {
 					fmt.Fprintln(w, "Last Modified\tKey\tValue")
 				} else {
-					fmt.Println(w, "Last Modified\tKey")
+					fmt.Fprintln(w, "Last Modified\tKey")
 				}
 				for _, k := range keys {
 					fmt.Fprintln(w, k)
