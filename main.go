@@ -15,6 +15,10 @@ import (
 	"github.com/urfave/cli"
 )
 
+var (
+	secrets = false
+)
+
 func main() {
 	app := cli.NewApp()
 	app.Version = "0.2.0"
@@ -23,16 +27,27 @@ func main() {
 		{
 			Name:  "ls",
 			Usage: "list param names. ex: ssm ls myapp, ssm ls",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "secrets",
+					Usage:       "print out secrets",
+					Destination: &secrets,
+				},
+			},
 			Action: func(c *cli.Context) error {
 				log.Println("fetching ssm keys")
 				s := c.Args().First()
-				keys, err := list(s)
+				keys, err := list(s, secrets)
 				if err != nil {
 					return err
 				}
 
 				w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-				fmt.Fprintln(w, "Last Modified\tKey")
+				if secrets {
+					fmt.Fprintln(w, "Last Modified\tKey\tValue")
+				} else {
+					fmt.Println(w, "Last Modified\tKey")
+				}
 				for _, k := range keys {
 					fmt.Fprintln(w, k)
 				}
@@ -113,13 +128,14 @@ func set(key, val string) error {
 type entry struct {
 	t    *time.Time
 	name string
+	val  string
 }
 
 func (e *entry) fmt() string {
-	return strings.Join([]string{e.t.Format("2006-01-02 15:04:05"), e.name}, "\t")
+	return strings.Join([]string{e.t.Format("2006-01-02 15:04:05"), e.name, e.val}, "\t")
 }
 
-func list(s string) ([]string, error) {
+func list(s string, showValue bool) ([]string, error) {
 
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -139,9 +155,21 @@ func list(s string) ([]string, error) {
 			if p.Name != nil {
 
 				if s == "" || strings.Contains(*p.Name, s) {
-					params = append(params,
-						entry{p.LastModifiedDate, *p.Name},
-					)
+					if showValue {
+
+						v, err := get(*p.Name)
+						if err != nil {
+							return []string{}, err
+						}
+						params = append(params,
+							entry{p.LastModifiedDate, *p.Name, v},
+						)
+					} else {
+						params = append(params,
+							entry{p.LastModifiedDate, *p.Name, ""},
+						)
+
+					}
 				}
 			}
 		}
