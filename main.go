@@ -82,7 +82,9 @@ func main() {
 }
 
 func rm(key string) error {
-	sess := session.Must(session.NewSession())
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
 
 	ssmsvc := ssm.New(sess, aws.NewConfig())
 	_, err := ssmsvc.DeleteParameter(&ssm.DeleteParameterInput{
@@ -92,7 +94,9 @@ func rm(key string) error {
 }
 
 func set(key, val string) error {
-	sess := session.Must(session.NewSession())
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
 
 	ssmsvc := ssm.New(sess, aws.NewConfig())
 	overwrite := true
@@ -116,8 +120,10 @@ func (e *entry) fmt() string {
 }
 
 func list(s string) ([]string, error) {
-	sess := session.Must(session.NewSession())
 
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
 	ssmsvc := ssm.New(sess, aws.NewConfig())
 	params := make([]entry, 0)
 	var next string
@@ -131,6 +137,7 @@ func list(s string) ([]string, error) {
 		}
 		for _, p := range desc.Parameters {
 			if p.Name != nil {
+
 				if s == "" || strings.Contains(*p.Name, s) {
 					params = append(params,
 						entry{p.LastModifiedDate, *p.Name},
@@ -162,7 +169,9 @@ func list(s string) ([]string, error) {
 
 func get(key string) (string, error) {
 
-	sess := session.Must(session.NewSession())
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
 
 	ssmsvc := ssm.New(sess, aws.NewConfig())
 	withDecryption := true

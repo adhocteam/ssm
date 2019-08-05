@@ -2,6 +2,11 @@
 ### About
 This is a command line interface to [AWS SSM Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html).
 
+### Install
+```
+$ go get -u github.com/adhocteam/ssm
+```
+
 ### Usage
 #### List params
 All parameters:
@@ -9,7 +14,7 @@ All parameters:
 ssm ls
 ```
 
-Params starting with `/my-app`
+Params containing `/my-app`
 ```
 ssm ls /my-app
 ```
