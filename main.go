@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
-	"regexp"
-	"strconv"
+	"sort"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -18,7 +17,7 @@ import (
 
 func main() {
 	app := cli.NewApp()
-	app.Version = "0.1.0"
+	app.Version = "0.2.0"
 	app.Usage = "simple ssm param store interface"
 	app.Commands = []cli.Command{
 		{
@@ -31,7 +30,13 @@ func main() {
 				if err != nil {
 					return err
 				}
-				prettyPrint(keys)
+
+				w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+				fmt.Fprintln(w, "Last Modified\tKey")
+				for _, k := range keys {
+					fmt.Fprintln(w, k)
+				}
+				w.Flush()
 				return nil
 			},
 		},
@@ -101,11 +106,20 @@ func set(key, val string) error {
 	return err
 }
 
+type entry struct {
+	t    *time.Time
+	name string
+}
+
+func (e *entry) fmt() string {
+	return strings.Join([]string{e.t.Format("2006-01-02 15:04:05"), e.name}, "\t")
+}
+
 func list(s string) ([]string, error) {
 	sess := session.Must(session.NewSession())
 
 	ssmsvc := ssm.New(sess, aws.NewConfig())
-	params := make([]string, 0)
+	params := make([]entry, 0)
 	var next string
 	var n int64 = 50
 	var in ssm.DescribeParametersInput
@@ -118,10 +132,13 @@ func list(s string) ([]string, error) {
 		for _, p := range desc.Parameters {
 			if p.Name != nil {
 				if s == "" || strings.Contains(*p.Name, s) {
-					params = append(params, *p.Name)
+					params = append(params,
+						entry{p.LastModifiedDate, *p.Name},
+					)
 				}
 			}
 		}
+
 		if desc.NextToken != nil {
 			next = *desc.NextToken
 			in = ssm.DescribeParametersInput{NextToken: &next, MaxResults: &n}
@@ -129,8 +146,17 @@ func list(s string) ([]string, error) {
 			break
 		}
 	}
+	sort.Slice(params, func(i, j int) bool {
+		return params[i].t.Before(*params[j].t)
 
-	return params, nil
+	})
+
+	vals := make([]string, 0)
+	for _, p := range params {
+		vals = append(vals, p.fmt())
+	}
+
+	return vals, nil
 
 }
 
@@ -150,63 +176,4 @@ func get(key string) (string, error) {
 
 	value := *param.Parameter.Value
 	return value, nil
-}
-
-// pretty print prints tab delimited keys based on the
-// based on the width of the calling terminal
-func prettyPrint(keys []string) {
-	var batchSize int
-
-	// get width of stdin -- if we can't figure it out,
-	// guess 3 as the number of columns to pretty print
-	cmd := exec.Command("stty", "size")
-	cmd.Stdin = os.Stdin
-	out, err := cmd.Output()
-	if err != nil {
-		log.Println("could not get width of tty")
-		batchSize = 3
-	}
-
-	// parse out the digits, the second digit is th width
-	re := regexp.MustCompile("[0-9]+")
-
-	matches := re.FindAll(out, 2)
-	var width int
-	if len(matches) == 2 {
-		width, err = strconv.Atoi(string(matches[1]))
-		if err != nil {
-			batchSize = 3
-		}
-	} else {
-		log.Println("could not get width of tty")
-		batchSize = 3
-	}
-
-	// max is the largest keyname to print
-	max := 0
-	for _, k := range keys {
-		if len(k) > max {
-			max = len(k)
-		}
-	}
-
-	// figure out how many columns you could have with the widest key
-	if max > 0 {
-		batchSize = (width / max)
-
-	}
-
-	// break up the keys into batches and print them
-	// with a tabwriter
-	var batches [][]string
-
-	for batchSize < len(keys) {
-		keys, batches = keys[batchSize:], append(batches, keys[0:batchSize:batchSize])
-	}
-	batches = append(batches, keys)
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-	for _, batch := range batches {
-		fmt.Fprintln(w, strings.Join(batch, "\t"))
-	}
-	w.Flush()
 }
