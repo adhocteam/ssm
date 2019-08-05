@@ -30,7 +30,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:        "secrets",
-					Usage:       "print out secrets",
+					Usage:       "print out parameter values in plaintext",
 					Destination: &secrets,
 				},
 			},
