@@ -4,7 +4,7 @@ This is a command line interface to [AWS SSM Parameter Store](https://docs.aws.a
 
 ### Install
 ```
-$ go get -u github.com/adhocteam/ssm
+$ GO111MODULE=on go get github.com/adhocteam/ssm
 ```
 
 ### Usage
