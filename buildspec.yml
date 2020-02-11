@@ -8,6 +8,6 @@ phases:
     commands:
       - echo Building the Go code...
       - go build
-	  - curl 'https://www.google.com'
+      - curl 'https://www.google.com'
       - echo you did it
 
