@@ -26,7 +26,7 @@ func main() {
 	app.Commands = []cli.Command{
 		{
 			Name:  "ls",
-			Usage: "list param names. ex: ssm ls myapp, ssm ls",
+			Usage: "list param names. ex: ssm ls myapp, ssm ls, ssm ls --secrets myapp",
 			Flags: []cli.Flag{
 				cli.BoolFlag{
 					Name:        "secrets",
