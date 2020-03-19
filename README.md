@@ -21,6 +21,11 @@ Params containing `/my-app`
 ssm ls /my-app
 ```
 
+Params containing `/my-app` with secrets printed in plaintext
+```
+ssm ls --secrets /my-app
+```
+
 #### Get the value of a param
 ```
 ssm get /myapp/staging/key
