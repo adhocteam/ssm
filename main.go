@@ -16,13 +16,21 @@ import (
 )
 
 var (
-	secrets = false
+	Secrets = false
+	Profile = ""
 )
 
 func main() {
 	app := cli.NewApp()
-	app.Version = "0.2.0"
+	app.Version = "0.3.0"
 	app.Usage = "simple ssm param store interface"
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:        "profile, p",
+			Usage:       "Specify an AWS profile. Optional. Defaults to AWS_PROFILE.",
+			Destination: &Profile,
+		},
+	}
 	app.Commands = []cli.Command{
 		{
 			Name:  "ls",
@@ -31,19 +39,22 @@ func main() {
 				cli.BoolFlag{
 					Name:        "secrets",
 					Usage:       "print out parameter values in plaintext",
-					Destination: &secrets,
+					Destination: &Secrets,
 				},
 			},
 			Action: func(c *cli.Context) error {
+				if Profile != "" {
+					os.Setenv("AWS_PROFILE", Profile)
+				}
 				log.Println("fetching ssm keys")
 				s := c.Args().First()
-				keys, err := list(s, secrets)
+				keys, err := list(s, Secrets)
 				if err != nil {
 					return err
 				}
 
 				w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-				if secrets {
+				if Secrets {
 					fmt.Fprintln(w, "Last Modified\tKey\tValue")
 				} else {
 					fmt.Fprintln(w, "Last Modified\tKey")
@@ -59,6 +70,9 @@ func main() {
 			Name:  "get",
 			Usage: "prints plaintext ssm value. ex: ssm get /app/prod/my-key",
 			Action: func(c *cli.Context) error {
+				if Profile != "" {
+					os.Setenv("AWS_PROFILE", Profile)
+				}
 				key := c.Args().First()
 				val, err := get(key)
 				if err != nil {
@@ -73,6 +87,9 @@ func main() {
 			Name:  "set",
 			Usage: "sets ssm k,v pair. overwrites. ex: ssm set /app/prod/version 27",
 			Action: func(c *cli.Context) error {
+				if Profile != "" {
+					os.Setenv("AWS_PROFILE", Profile)
+				}
 				key := c.Args().First()
 				val := c.Args().Get(1)
 				err := set(key, val)
@@ -84,12 +101,16 @@ func main() {
 			Name:  "rm",
 			Usage: "removes ssm param. ex: ssm rm /app/prod/param",
 			Action: func(c *cli.Context) error {
+				if Profile != "" {
+					os.Setenv("AWS_PROFILE", Profile)
+				}
 				key := c.Args().First()
 				err := rm(key)
 				return err
 			},
 		},
 	}
+
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)

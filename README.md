@@ -10,6 +10,8 @@ $ GO111MODULE=on go get github.com/adhocteam/ssm
 ```
 
 ### Usage
+
+
 #### List params
 All parameters:
 ```
@@ -26,6 +28,11 @@ ssm ls /my-app
 ssm get /myapp/staging/key
 ```
 
+You can use the value of a parameter in a bash script like
+```
+PGPASSWORD=$(ssm get /myapp/prod/pgpass)
+```
+
 #### Set param key value
 ```
 ssm set /myapp/staging/version 27
@@ -35,3 +42,8 @@ ssm set /myapp/staging/version 27
 ```
 ssm rm /myapp/staging/version
 ```
+
+### Specifying the AWS Profile
+The app will either rely on the `AWS_PROFILE` environment variable,
+or you can set one with the `-p` and `--profile` flag. For each example above,
+ add that flag, i.e. `ssm -p myprofile ls myapp` to override the `AWS_PROFILE`.
