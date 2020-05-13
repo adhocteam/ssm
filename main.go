@@ -22,7 +22,7 @@ var (
 
 func main() {
 	app := cli.NewApp()
-	app.Version = "0.3.0"
+	app.Version = "1.0.0"
 	app.Usage = "simple ssm param store interface"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
