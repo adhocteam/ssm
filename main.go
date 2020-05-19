@@ -16,13 +16,14 @@ import (
 )
 
 var (
-	Secrets = false
-	Profile = ""
+	Secrets   = false
+	Profile   = ""
+	NoNewLine = false
 )
 
 func main() {
 	app := cli.NewApp()
-	app.Version = "1.0.0"
+	app.Version = "1.1.0"
 	app.Usage = "simple ssm param store interface"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -69,6 +70,13 @@ func main() {
 		{
 			Name:  "get",
 			Usage: "prints plaintext ssm value. ex: ssm get /app/prod/my-key",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "n",
+					Usage:       "Do not print a trailing newline",
+					Destination: &NoNewLine,
+				},
+			},
 			Action: func(c *cli.Context) error {
 				if Profile != "" {
 					os.Setenv("AWS_PROFILE", Profile)
@@ -78,7 +86,11 @@ func main() {
 				if err != nil {
 					return err
 				}
-				fmt.Println(val)
+				if NoNewLine {
+					fmt.Print(val)
+				} else {
+					fmt.Println(val)
+				}
 				return nil
 			},
 		},
