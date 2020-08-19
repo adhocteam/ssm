@@ -149,11 +149,16 @@ func set(key, val string) error {
 	ssmsvc := ssm.New(sess, aws.NewConfig())
 	overwrite := true
 	ptype := "SecureString"
+	tier := "Standard"
+	if len([]byte(val)) > 4096 {
+		tier = "Advanced"
+	}
 	_, err := ssmsvc.PutParameter(&ssm.PutParameterInput{
 		Name:      &key,
 		Value:     &val,
 		Overwrite: &overwrite,
 		Type:      &ptype,
+		Tier:      &tier,
 	})
 	return err
 }
