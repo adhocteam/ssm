@@ -2,11 +2,14 @@
 
 ## SSM
 ### About
-This is a command line interface to [AWS SSM Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html).
+This is a command line interface to the [AWS SSM Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html).
 
 ### Install
+[Binaries](https://github.com/adhocteam/ssm/releases) are available for Linux and MacOS. 
+
+To install from source, install a [Go](https://golang.org/dl/) compiler and:
 ```
-$ GO111MODULE=on go get -u github.com/adhocteam/ssm
+GO111MODULE=on go get -u github.com/adhocteam/ssm
 ```
 
 ### Usage
