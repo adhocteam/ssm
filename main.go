@@ -174,7 +174,6 @@ func (e *entry) fmt() string {
 }
 
 func list(s string, showValue bool) ([]string, error) {
-
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -182,16 +181,25 @@ func list(s string, showValue bool) ([]string, error) {
 	params := make([]entry, 0)
 	var next string
 	var n int64 = 50
-	var in ssm.DescribeParametersInput
-	for {
 
+	k := "Name"
+	filterOption := "Contains"
+	filter := ssm.ParameterStringFilter{Key: &k, Option: &filterOption, Values: []*string{&s}}
+	var in ssm.DescribeParametersInput
+	if s != "" {
+		in = ssm.DescribeParametersInput{
+			ParameterFilters: []*ssm.ParameterStringFilter{&filter},
+		}
+	} else {
+		in = ssm.DescribeParametersInput{}
+	}
+	for {
 		desc, err := ssmsvc.DescribeParameters(&in)
 		if err != nil {
 			return []string{}, err
 		}
 		for _, p := range desc.Parameters {
 			if p.Name != nil {
-
 				if s == "" || strings.Contains(*p.Name, s) {
 					if showValue {
 
@@ -206,7 +214,6 @@ func list(s string, showValue bool) ([]string, error) {
 						params = append(params,
 							entry{p.LastModifiedDate, *p.Name, ""},
 						)
-
 					}
 				}
 			}
@@ -214,14 +221,17 @@ func list(s string, showValue bool) ([]string, error) {
 
 		if desc.NextToken != nil {
 			next = *desc.NextToken
-			in = ssm.DescribeParametersInput{NextToken: &next, MaxResults: &n}
+			if s != "" {
+				in = ssm.DescribeParametersInput{NextToken: &next, MaxResults: &n, ParameterFilters: []*ssm.ParameterStringFilter{&filter}}
+			} else {
+				in = ssm.DescribeParametersInput{NextToken: &next, MaxResults: &n}
+			}
 		} else {
 			break
 		}
 	}
 	sort.Slice(params, func(i, j int) bool {
 		return params[i].t.Before(*params[j].t)
-
 	})
 
 	vals := make([]string, 0)
@@ -230,11 +240,9 @@ func list(s string, showValue bool) ([]string, error) {
 	}
 
 	return vals, nil
-
 }
 
 func get(key string) (string, error) {
-
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
