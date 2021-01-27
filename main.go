@@ -200,21 +200,19 @@ func list(s string, showValue bool) ([]string, error) {
 		}
 		for _, p := range desc.Parameters {
 			if p.Name != nil {
-				if s == "" || strings.Contains(*p.Name, s) {
-					if showValue {
+				if showValue {
 
-						v, err := get(*p.Name)
-						if err != nil {
-							return []string{}, err
-						}
-						params = append(params,
-							entry{p.LastModifiedDate, *p.Name, v},
-						)
-					} else {
-						params = append(params,
-							entry{p.LastModifiedDate, *p.Name, ""},
-						)
+					v, err := get(*p.Name)
+					if err != nil {
+						return []string{}, err
 					}
+					params = append(params,
+						entry{p.LastModifiedDate, *p.Name, v},
+					)
+				} else {
+					params = append(params,
+						entry{p.LastModifiedDate, *p.Name, ""},
+					)
 				}
 			}
 		}
