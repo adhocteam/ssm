@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -174,6 +175,7 @@ func (e *entry) fmt() string {
 }
 
 func list(s string, showValue bool) ([]string, error) {
+	// build aws session
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -182,10 +184,14 @@ func list(s string, showValue bool) ([]string, error) {
 	var next string
 	var n int64 = 50
 
+	// set name filters for AWS
 	k := "Name"
 	filterOption := "Contains"
 	filter := ssm.ParameterStringFilter{Key: &k, Option: &filterOption, Values: []*string{&s}}
 	var in ssm.DescribeParametersInput
+	var wg sync.WaitGroup
+
+	// if filter specified, add name filters
 	if s != "" {
 		in = ssm.DescribeParametersInput{
 			ParameterFilters: []*ssm.ParameterStringFilter{&filter},
@@ -193,6 +199,7 @@ func list(s string, showValue bool) ([]string, error) {
 	} else {
 		in = ssm.DescribeParametersInput{}
 	}
+	// iterate over results.
 	for {
 		desc, err := ssmsvc.DescribeParameters(&in)
 		if err != nil {
@@ -200,15 +207,23 @@ func list(s string, showValue bool) ([]string, error) {
 		}
 		for _, p := range desc.Parameters {
 			if p.Name != nil {
+				name := *p.Name
 				if showValue {
+					// set waitgroup and fetch in a goroutine
+					wg.Add(1)
+					go func() {
+						defer wg.Done()
+						v, err := get(name)
+						if err != nil {
+							log.Fatal(err)
+						} else {
+							params = append(params,
+								entry{p.LastModifiedDate, name, v},
+							)
 
-					v, err := get(*p.Name)
-					if err != nil {
-						return []string{}, err
-					}
-					params = append(params,
-						entry{p.LastModifiedDate, *p.Name, v},
-					)
+						}
+
+					}()
 				} else {
 					params = append(params,
 						entry{p.LastModifiedDate, *p.Name, ""},
@@ -216,6 +231,8 @@ func list(s string, showValue bool) ([]string, error) {
 				}
 			}
 		}
+		// let all goroutines finish
+		wg.Wait()
 
 		if desc.NextToken != nil {
 			next = *desc.NextToken
