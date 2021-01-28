@@ -20,6 +20,7 @@ var (
 	Secrets   = false
 	Profile   = ""
 	NoNewLine = false
+	HideTS    = false
 )
 
 func main() {
@@ -44,6 +45,11 @@ func main() {
 					Usage:       "print out parameter values in plaintext",
 					Destination: &Secrets,
 				},
+				cli.BoolFlag{
+					Name:        "hide-ts",
+					Usage:       "prints keys in alphabetical order without timestamps (good for diffs)",
+					Destination: &HideTS,
+				},
 			},
 			Action: func(c *cli.Context) error {
 				if Profile != "" {
@@ -51,7 +57,7 @@ func main() {
 				}
 				log.Println("fetching ssm keys")
 				s := c.Args().First()
-				keys, err := list(s, Secrets)
+				keys, err := list(s, Secrets, !HideTS)
 				if err != nil {
 					return err
 				}
@@ -171,11 +177,15 @@ type entry struct {
 	val  string
 }
 
-func (e *entry) fmt() string {
-	return strings.Join([]string{e.t.Format("2006-01-02 15:04:05"), e.name, e.val}, "\t")
+func (e *entry) fmt(ts bool) string {
+	if ts {
+		return strings.Join([]string{e.t.Format("2006-01-02 15:04:05"), e.name, e.val}, "\t")
+	} else {
+		return strings.Join([]string{e.name, e.val}, "\t")
+	}
 }
 
-func list(s string, showValue bool) ([]string, error) {
+func list(s string, showValue, ts bool) ([]string, error) {
 	// build aws session
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -253,13 +263,20 @@ func list(s string, showValue bool) ([]string, error) {
 			break
 		}
 	}
-	sort.Slice(params, func(i, j int) bool {
-		return params[i].t.Before(*params[j].t)
-	})
+	if ts {
+		sort.Slice(params, func(i, j int) bool {
+			return params[i].t.Before(*params[j].t)
+		})
+
+	} else {
+		sort.Slice(params, func(i, j int) bool {
+			return params[i].name < params[j].name
+		})
+	}
 
 	vals := make([]string, 0)
 	for _, p := range params {
-		vals = append(vals, p.fmt())
+		vals = append(vals, p.fmt(ts))
 	}
 
 	return vals, nil
