@@ -24,7 +24,7 @@ var (
 
 func main() {
 	app := cli.NewApp()
-	app.Version = "1.3.1"
+	app.Version = "1.3.2"
 	app.Usage = "simple ssm param store interface"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -199,7 +199,10 @@ func list(s string, showValue bool) ([]string, error) {
 	} else {
 		in = ssm.DescribeParametersInput{}
 	}
-	// iterate over results.
+	// iterate over results
+
+	// blocking semaphore channel to keep concurrency under control
+	sem := make(chan struct{}, 5)
 	for {
 		desc, err := ssmsvc.DescribeParameters(&in)
 		if err != nil {
@@ -211,6 +214,8 @@ func list(s string, showValue bool) ([]string, error) {
 				if showValue {
 					// set waitgroup and fetch in a goroutine
 					wg.Add(1)
+					sem <- struct{}{}
+
 					go func() {
 						defer wg.Done()
 						v, err := get(name)
@@ -222,6 +227,7 @@ func list(s string, showValue bool) ([]string, error) {
 							)
 
 						}
+						<-sem
 
 					}()
 				} else {
