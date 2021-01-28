@@ -25,6 +25,7 @@ var (
 func main() {
 	app := cli.NewApp()
 	app.Version = "1.3.2"
+
 	app.Usage = "simple ssm param store interface"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -211,6 +212,7 @@ func list(s string, showValue bool) ([]string, error) {
 		for _, p := range desc.Parameters {
 			if p.Name != nil {
 				name := *p.Name
+				date := p.LastModifiedDate
 				if showValue {
 					// set waitgroup and fetch in a goroutine
 					wg.Add(1)
@@ -223,7 +225,7 @@ func list(s string, showValue bool) ([]string, error) {
 							log.Fatal(err)
 						} else {
 							params = append(params,
-								entry{p.LastModifiedDate, name, v},
+								entry{date, name, v},
 							)
 
 						}
