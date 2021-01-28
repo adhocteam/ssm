@@ -175,6 +175,7 @@ func (e *entry) fmt() string {
 }
 
 func list(s string, showValue bool) ([]string, error) {
+	// build aws session
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
 	}))
@@ -183,11 +184,14 @@ func list(s string, showValue bool) ([]string, error) {
 	var next string
 	var n int64 = 50
 
+	// set name filters for AWS
 	k := "Name"
 	filterOption := "Contains"
 	filter := ssm.ParameterStringFilter{Key: &k, Option: &filterOption, Values: []*string{&s}}
 	var in ssm.DescribeParametersInput
 	var wg sync.WaitGroup
+
+	// if filter specified, add name filters
 	if s != "" {
 		in = ssm.DescribeParametersInput{
 			ParameterFilters: []*ssm.ParameterStringFilter{&filter},
@@ -195,6 +199,7 @@ func list(s string, showValue bool) ([]string, error) {
 	} else {
 		in = ssm.DescribeParametersInput{}
 	}
+	// iterate over results.
 	for {
 		desc, err := ssmsvc.DescribeParameters(&in)
 		if err != nil {
