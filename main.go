@@ -17,10 +17,11 @@ import (
 )
 
 var (
-	Secrets   = false
-	Profile   = ""
-	NoNewLine = false
-	HideTS    = false
+	Secrets     = false
+	Profile     = ""
+	NoNewLine   = false
+	HideTS      = false
+	StripPrefix = false
 )
 
 func main() {
@@ -50,6 +51,11 @@ func main() {
 					Usage:       "prints keys in alphabetical order without timestamps (good for diffs)",
 					Destination: &HideTS,
 				},
+				cli.BoolFlag{
+					Name:        "strip-prefix",
+					Usage:       "strips prefix from the variable (also good for diffs)",
+					Destination: &StripPrefix,
+				},
 			},
 			Action: func(c *cli.Context) error {
 				if Profile != "" {
@@ -57,7 +63,7 @@ func main() {
 				}
 				log.Println("fetching ssm keys")
 				s := c.Args().First()
-				keys, err := list(s, Secrets, !HideTS)
+				keys, err := list(s, Secrets, !HideTS, StripPrefix)
 				if err != nil {
 					return err
 				}
@@ -177,15 +183,22 @@ type entry struct {
 	val  string
 }
 
-func (e *entry) fmt(ts bool) string {
-	if ts {
-		return strings.Join([]string{e.t.Format("2006-01-02 15:04:05"), e.name, e.val}, "\t")
+func (e *entry) fmt(ts, stripPrefix bool) string {
+	var val string
+	if stripPrefix {
+		s := strings.Split(e.val, "/")
+		val = s[len(s)-1]
 	} else {
-		return strings.Join([]string{e.name, e.val}, "\t")
+		val = e.val
+	}
+	if ts {
+		return strings.Join([]string{e.t.Format("2006-01-02 15:04:05"), e.name, val}, "\t")
+	} else {
+		return strings.Join([]string{e.name, val}, "\t")
 	}
 }
 
-func list(s string, showValue, ts bool) ([]string, error) {
+func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 	// build aws session
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -276,7 +289,7 @@ func list(s string, showValue, ts bool) ([]string, error) {
 
 	vals := make([]string, 0)
 	for _, p := range params {
-		vals = append(vals, p.fmt(ts))
+		vals = append(vals, p.fmt(ts, stripPrefix))
 	}
 
 	return vals, nil
