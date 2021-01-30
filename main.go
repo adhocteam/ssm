@@ -6,7 +6,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -204,7 +203,6 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 	ssmsvc := ssm.New(sess, aws.NewConfig())
-	pc := make(chan entry, 1024)
 	var next string
 	var n int64 = 50
 
@@ -213,7 +211,6 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 	filterOption := "Contains"
 	filter := ssm.ParameterStringFilter{Key: &k, Option: &filterOption, Values: []*string{&s}}
 	var in ssm.DescribeParametersInput
-	var wg sync.WaitGroup
 
 	// if filter specified, add name filters
 	if s != "" {
@@ -223,42 +220,47 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 	} else {
 		in = ssm.DescribeParametersInput{}
 	}
-	// iterate over results
 
 	// blocking semaphore channel to keep concurrency under control
-	sem := make(chan struct{}, 5)
+	semChan := make(chan struct{}, 5)
+	defer close(semChan)
 
+	params := []entry{}
+	// iterate over results
 	for {
 		desc, err := ssmsvc.DescribeParameters(&in)
 		if err != nil {
 			return []string{}, err
 		}
+		// result channel to store entries from concurrent secret requests
+		resultChan := make(chan entry, len(desc.Parameters))
+		defer close(resultChan)
 		for _, p := range desc.Parameters {
 			if p.Name != nil {
 				name := *p.Name
 				date := p.LastModifiedDate
 				if showValue {
 					// set waitgroup and fetch in a goroutine
-					wg.Add(1)
-					sem <- struct{}{}
+					semChan <- struct{}{}
 
 					go func() {
-						defer wg.Done()
 						v, err := get(name)
 						if err != nil {
 							log.Fatal(err)
 						} else {
-							pc <- entry{date, name, v}
+							resultChan <- entry{date, name, v}
 						}
-						<-sem
+						<-semChan
 					}()
 				} else {
-					pc <- entry{p.LastModifiedDate, *p.Name, ""}
+					resultChan <- entry{date, name, ""}
 				}
 			}
 		}
-		// let all goroutines finish
-		wg.Wait()
+		for i := 0; i < len(desc.Parameters); i++ {
+			p := <-resultChan
+			params = append(params, p)
+		}
 
 		if desc.NextToken != nil {
 			next = *desc.NextToken
@@ -270,11 +272,6 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 		} else {
 			break
 		}
-	}
-	params := []entry{}
-	close(pc)
-	for p := range pc {
-		params = append(params, p)
 	}
 
 	if ts {
