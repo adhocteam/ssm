@@ -8,7 +8,7 @@ jobs:
     steps:
       - checkout
       - run: GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck
-      - run: GO111MODULE=on go get github.com/securego/gosec
+      - run: curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.6.1
       - run: go build -v ./... && go test -v ./...
       - run: staticcheck *.go
       - run: gosec .
