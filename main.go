@@ -16,11 +16,11 @@ import (
 )
 
 var (
-	Secrets     = false
-	Profile     = ""
-	NoNewLine   = false
-	HideTS      = false
-	StripPrefix = false
+	secrets     = false
+	profile     = ""
+	noNewLine   = false
+	hideTS      = false
+	stripPrefix = false
 )
 
 func main() {
@@ -32,7 +32,7 @@ func main() {
 		cli.StringFlag{
 			Name:        "profile, p",
 			Usage:       "Specify an AWS profile. Optional. Defaults to AWS_PROFILE.",
-			Destination: &Profile,
+			Destination: &profile,
 		},
 	}
 	app.Commands = []cli.Command{
@@ -43,32 +43,35 @@ func main() {
 				cli.BoolFlag{
 					Name:        "secrets",
 					Usage:       "print out parameter values in plaintext",
-					Destination: &Secrets,
+					Destination: &secrets,
 				},
 				cli.BoolFlag{
 					Name:        "hide-ts",
 					Usage:       "prints keys in alphabetical order without timestamps (good for diffs)",
-					Destination: &HideTS,
+					Destination: &hideTS,
 				},
 				cli.BoolFlag{
 					Name:        "strip-prefix",
 					Usage:       "strips prefix from the variable (also good for diffs)",
-					Destination: &StripPrefix,
+					Destination: &stripPrefix,
 				},
 			},
 			Action: func(c *cli.Context) error {
-				if Profile != "" {
-					os.Setenv("AWS_PROFILE", Profile)
+				if profile != "" {
+					err := os.Setenv("AWS_PROFILE", profile)
+					if err != nil {
+						return err
+					}
 				}
 				log.Println("fetching ssm keys")
 				s := c.Args().First()
-				keys, err := list(s, Secrets, !HideTS, StripPrefix)
+				keys, err := list(s, secrets, !hideTS, stripPrefix)
 				if err != nil {
 					return err
 				}
 
 				w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-				if Secrets {
+				if secrets {
 					fmt.Fprintln(w, "Last Modified\tKey\tValue")
 				} else {
 					fmt.Fprintln(w, "Last Modified\tKey")
@@ -76,7 +79,10 @@ func main() {
 				for _, k := range keys {
 					fmt.Fprintln(w, k)
 				}
-				w.Flush()
+				err = w.Flush()
+				if err != nil {
+					return err
+				}
 				return nil
 			},
 		},
@@ -87,19 +93,22 @@ func main() {
 				cli.BoolFlag{
 					Name:        "n",
 					Usage:       "Do not print a trailing newline",
-					Destination: &NoNewLine,
+					Destination: &noNewLine,
 				},
 			},
 			Action: func(c *cli.Context) error {
-				if Profile != "" {
-					os.Setenv("AWS_PROFILE", Profile)
+				if profile != "" {
+					err := os.Setenv("AWS_PROFILE", profile)
+					if err != nil {
+						return err
+					}
 				}
 				key := c.Args().First()
 				val, err := get(key)
 				if err != nil {
 					return err
 				}
-				if NoNewLine {
+				if noNewLine {
 					fmt.Print(val)
 				} else {
 					fmt.Println(val)
@@ -112,8 +121,11 @@ func main() {
 			Name:  "set",
 			Usage: "sets ssm k,v pair. overwrites. ex: ssm set /app/prod/version 27",
 			Action: func(c *cli.Context) error {
-				if Profile != "" {
-					os.Setenv("AWS_PROFILE", Profile)
+				if profile != "" {
+					err := os.Setenv("AWS_PROFILE", profile)
+					if err != nil {
+						return err
+					}
 				}
 				key := c.Args().First()
 				val := c.Args().Get(1)
@@ -126,8 +138,11 @@ func main() {
 			Name:  "rm",
 			Usage: "removes ssm param. ex: ssm rm /app/prod/param",
 			Action: func(c *cli.Context) error {
-				if Profile != "" {
-					os.Setenv("AWS_PROFILE", Profile)
+				if profile != "" {
+					err := os.Setenv("AWS_PROFILE", profile)
+					if err != nil {
+						return err
+					}
 				}
 				key := c.Args().First()
 				err := rm(key)
@@ -192,9 +207,8 @@ func (e *entry) fmt(ts, stripPrefix bool) string {
 	}
 	if ts {
 		return strings.Join([]string{e.t.Format("2006-01-02 15:04:05"), e.name, val}, "\t")
-	} else {
-		return strings.Join([]string{e.name, val}, "\t")
 	}
+	return strings.Join([]string{e.name, val}, "\t")
 }
 
 func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
@@ -240,7 +254,6 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 				name := *p.Name
 				date := p.LastModifiedDate
 				if showValue {
-					// set waitgroup and fetch in a goroutine
 					semChan <- struct{}{}
 
 					go func() {
