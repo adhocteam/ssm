@@ -204,7 +204,7 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 		SharedConfigState: session.SharedConfigEnable,
 	}))
 	ssmsvc := ssm.New(sess, aws.NewConfig())
-	params := make([]entry, 0)
+	pc := make(chan entry, 1024)
 	var next string
 	var n int64 = 50
 
@@ -227,6 +227,7 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 
 	// blocking semaphore channel to keep concurrency under control
 	sem := make(chan struct{}, 5)
+
 	for {
 		desc, err := ssmsvc.DescribeParameters(&in)
 		if err != nil {
@@ -247,18 +248,12 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 						if err != nil {
 							log.Fatal(err)
 						} else {
-							params = append(params,
-								entry{date, name, v},
-							)
-
+							pc <- entry{date, name, v}
 						}
 						<-sem
-
 					}()
 				} else {
-					params = append(params,
-						entry{p.LastModifiedDate, *p.Name, ""},
-					)
+					pc <- entry{p.LastModifiedDate, *p.Name, ""}
 				}
 			}
 		}
@@ -276,6 +271,13 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 			break
 		}
 	}
+	params := []entry{}
+	close(pc)
+	for p := range pc {
+		params = append(params, p)
+	}
+	log.Println("made it here")
+
 	if ts {
 		sort.Slice(params, func(i, j int) bool {
 			return params[i].t.Before(*params[j].t)
