@@ -276,7 +276,6 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 	for p := range pc {
 		params = append(params, p)
 	}
-	log.Println("made it here")
 
 	if ts {
 		sort.Slice(params, func(i, j int) bool {
