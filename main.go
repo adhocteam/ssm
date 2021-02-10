@@ -25,7 +25,7 @@ var (
 
 func main() {
 	app := cli.NewApp()
-	app.Version = "1.3.4"
+	app.Version = "1.3.6"
 
 	app.Usage = "simple ssm param store interface"
 	app.Flags = []cli.Flag{
@@ -80,10 +80,7 @@ func main() {
 					fmt.Fprintln(w, k)
 				}
 				err = w.Flush()
-				if err != nil {
-					return err
-				}
-				return nil
+				return err
 			},
 		},
 		{
@@ -291,7 +288,6 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 		sort.Slice(params, func(i, j int) bool {
 			return params[i].t.Before(*params[j].t)
 		})
-
 	} else {
 		sort.Slice(params, func(i, j int) bool {
 			return params[i].name < params[j].name
