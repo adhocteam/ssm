@@ -21,12 +21,12 @@ var (
 	noNewLine   = false
 	hideTS      = false
 	stripPrefix = false
+	showHistory = false
 )
 
 func main() {
 	app := cli.NewApp()
-	app.Version = "1.3.6"
-
+	app.Version = "1.4.0"
 	app.Usage = "simple ssm param store interface"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -55,6 +55,11 @@ func main() {
 					Usage:       "strips prefix from the variable (also good for diffs)",
 					Destination: &stripPrefix,
 				},
+				cli.BoolFlag{
+					Name:        "show-history",
+					Usage:       "if secrets are printed, print all previous versions with it ",
+					Destination: &showHistory,
+				},
 			},
 			Action: func(c *cli.Context) error {
 				if profile != "" {
@@ -65,13 +70,15 @@ func main() {
 				}
 				log.Println("fetching ssm keys")
 				s := c.Args().First()
-				keys, err := list(s, secrets, !hideTS, stripPrefix)
+				keys, err := list(s, secrets, !hideTS, stripPrefix, showHistory)
 				if err != nil {
 					return err
 				}
 
 				w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-				if secrets {
+				if secrets && showHistory {
+					fmt.Fprintln(w, "Last Modified\tKey\tValue\tHistory (desc)")
+				} else if secrets {
 					fmt.Fprintln(w, "Last Modified\tKey\tValue")
 				} else {
 					fmt.Fprintln(w, "Last Modified\tKey")
@@ -189,9 +196,10 @@ func set(key, val string) error {
 }
 
 type entry struct {
-	t    *time.Time
-	name string
-	val  string
+	t       *time.Time
+	name    string
+	val     string
+	history []string
 }
 
 func (e *entry) fmt(ts, stripPrefix bool) string {
@@ -202,13 +210,41 @@ func (e *entry) fmt(ts, stripPrefix bool) string {
 	} else {
 		val = e.val
 	}
+	h := strings.Join(e.history, ", ")
 	if ts {
-		return strings.Join([]string{e.t.Format("2006-01-02 15:04:05"), e.name, val}, "\t")
+		return strings.Join([]string{e.t.Format("2006-01-02 15:04:05"), e.name, val, h}, "\t")
 	}
-	return strings.Join([]string{e.name, val}, "\t")
+	return strings.Join([]string{e.name, val, h}, "\t")
 }
 
-func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
+func history(key string) ([]string, error) {
+	sess := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+
+	ssmsvc := ssm.New(sess, aws.NewConfig())
+	hist := []string{}
+	max := int64(50)
+	decrypt := true
+	in := ssm.GetParameterHistoryInput{MaxResults: &max, Name: &key, WithDecryption: &decrypt}
+	for {
+		out, err := ssmsvc.GetParameterHistory(&in)
+		if err != nil {
+			return []string{}, err
+		}
+		for _, v := range out.Parameters {
+			hist = append(hist, *v.Value)
+		}
+		if out.NextToken == nil {
+			break
+		}
+		in = ssm.GetParameterHistoryInput{MaxResults: &max, NextToken: out.NextToken, Name: &key, WithDecryption: &decrypt}
+
+	}
+	return hist, nil
+}
+
+func list(s string, showValue, ts, stripPrefix, showHistory bool) ([]string, error) {
 	// build aws session
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -233,7 +269,11 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 	}
 
 	// blocking semaphore channel to keep concurrency under control
-	semChan := make(chan struct{}, 5)
+	nworkers := 5
+	if showHistory {
+		nworkers = 1
+	}
+	semChan := make(chan struct{}, nworkers)
 	defer close(semChan)
 
 	params := []entry{}
@@ -257,13 +297,20 @@ func list(s string, showValue, ts, stripPrefix bool) ([]string, error) {
 						v, err := get(name)
 						if err != nil {
 							log.Fatal(err)
-						} else {
-							resultChan <- entry{date, name, v}
 						}
+						hist := []string{}
+						if showHistory {
+							hist, err = history(name)
+							if err != nil {
+								log.Fatal(err)
+							}
+						}
+						resultChan <- entry{date, name, v, hist}
+
 						<-semChan
 					}()
 				} else {
-					resultChan <- entry{date, name, ""}
+					resultChan <- entry{date, name, "", []string{}}
 				}
 			}
 		}
