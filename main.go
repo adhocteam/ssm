@@ -26,7 +26,7 @@ var (
 
 func main() {
 	app := cli.NewApp()
-	app.Version = "1.4.0"
+	app.Version = "1.4.1"
 	app.Usage = "simple ssm param store interface"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -233,7 +233,8 @@ func history(key string) ([]string, error) {
 			return []string{}, err
 		}
 		for _, v := range out.Parameters {
-			hist = append(hist, *v.Value)
+			date := *v.LastModifiedDate
+			hist = append(hist, fmt.Sprintf("(%s, %s)", date.Format("2006-01-02"), *v.Value))
 		}
 		if out.NextToken == nil {
 			break
