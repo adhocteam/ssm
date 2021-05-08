@@ -16,15 +16,22 @@ import (
 )
 
 var (
-	secrets     = false
-	profile     = ""
-	noNewLine   = false
-	hideTS      = false
+	// show secrets in plaintext
+	secrets = false
+	// aws profile
+	profile = ""
+	// don't print newline on ssm get
+	noNewLine = false
+	// don't print timestamps of params
+	hideTS = false
+	// remove leading environment; /prod/version -> version
 	stripPrefix = false
+	// print tuple of parameter histories
 	showHistory = false
 )
 
 func main() {
+
 	app := cli.NewApp()
 	app.Version = "1.4.1"
 	app.Usage = "simple ssm param store interface"
@@ -62,19 +69,25 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				if profile != "" {
-					err := os.Setenv("AWS_PROFILE", profile)
-					if err != nil {
-						return err
-					}
-				}
+
+				// create SSM session
+				sess := session.Must(session.NewSessionWithOptions(session.Options{
+					SharedConfigState: session.SharedConfigEnable,
+					Profile:           profile,
+				}))
+
+				service := ssm.New(sess, aws.NewConfig())
+
 				log.Println("fetching ssm keys")
 				s := c.Args().First()
-				keys, err := list(s, secrets, !hideTS, stripPrefix, showHistory)
+
+				// retrieve parameters
+				keys, err := list(s, secrets, !hideTS, stripPrefix, showHistory, service)
 				if err != nil {
 					return err
 				}
 
+				// print out parameters
 				w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 				if secrets && showHistory {
 					fmt.Fprintln(w, "Last Modified\tKey\tValue\tHistory (desc)")
@@ -101,17 +114,22 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-				if profile != "" {
-					err := os.Setenv("AWS_PROFILE", profile)
-					if err != nil {
-						return err
-					}
-				}
+				// create SSM session
+				sess := session.Must(session.NewSessionWithOptions(session.Options{
+					SharedConfigState: session.SharedConfigEnable,
+					Profile:           profile,
+				}))
+
+				service := ssm.New(sess, aws.NewConfig())
 				key := c.Args().First()
-				val, err := get(key)
+
+				// fetch key
+				val, err := get(key, service)
 				if err != nil {
 					return err
 				}
+
+				// print (with or without newline)
 				if noNewLine {
 					fmt.Print(val)
 				} else {
@@ -125,15 +143,18 @@ func main() {
 			Name:  "set",
 			Usage: "sets ssm k,v pair. overwrites. ex: ssm set /app/prod/version 27",
 			Action: func(c *cli.Context) error {
-				if profile != "" {
-					err := os.Setenv("AWS_PROFILE", profile)
-					if err != nil {
-						return err
-					}
-				}
+				// create SSM session
+				sess := session.Must(session.NewSessionWithOptions(session.Options{
+					SharedConfigState: session.SharedConfigEnable,
+					Profile:           profile,
+				}))
+
+				service := ssm.New(sess, aws.NewConfig())
+
+				// set key value pair
 				key := c.Args().First()
 				val := c.Args().Get(1)
-				err := set(key, val)
+				err := set(key, val, service)
 				return err
 			},
 		},
@@ -142,14 +163,17 @@ func main() {
 			Name:  "rm",
 			Usage: "removes ssm param. ex: ssm rm /app/prod/param",
 			Action: func(c *cli.Context) error {
-				if profile != "" {
-					err := os.Setenv("AWS_PROFILE", profile)
-					if err != nil {
-						return err
-					}
-				}
+
+				// create SSM session
+				sess := session.Must(session.NewSessionWithOptions(session.Options{
+					SharedConfigState: session.SharedConfigEnable,
+					Profile:           profile,
+				}))
+
+				service := ssm.New(sess, aws.NewConfig())
 				key := c.Args().First()
-				err := rm(key)
+				// delete key
+				err := rm(key, service)
 				return err
 			},
 		},
@@ -161,31 +185,25 @@ func main() {
 	}
 }
 
-func rm(key string) error {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
+// rm deletes a ssm key.
+func rm(key string, service *ssm.SSM) error {
 
-	ssmsvc := ssm.New(sess, aws.NewConfig())
-	_, err := ssmsvc.DeleteParameter(&ssm.DeleteParameterInput{
+	_, err := service.DeleteParameter(&ssm.DeleteParameterInput{
 		Name: &key,
 	})
 	return err
 }
 
-func set(key, val string) error {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
+// set sets a ssm key to a value.
+func set(key, val string, service *ssm.SSM) error {
 
-	ssmsvc := ssm.New(sess, aws.NewConfig())
 	overwrite := true
 	ptype := "SecureString"
 	tier := "Standard"
 	if len([]byte(val)) > 4096 {
 		tier = "Advanced"
 	}
-	_, err := ssmsvc.PutParameter(&ssm.PutParameterInput{
+	_, err := service.PutParameter(&ssm.PutParameterInput{
 		Name:      &key,
 		Value:     &val,
 		Overwrite: &overwrite,
@@ -195,6 +213,7 @@ func set(key, val string) error {
 	return err
 }
 
+// entry is a parameter entry used to format histories.
 type entry struct {
 	t       *time.Time
 	name    string
@@ -202,6 +221,7 @@ type entry struct {
 	history []string
 }
 
+// fmt returns a formatted string with optional timestamp and parameter prefix.
 func (e *entry) fmt(ts, stripPrefix bool) string {
 	var val string
 	if stripPrefix {
@@ -217,18 +237,15 @@ func (e *entry) fmt(ts, stripPrefix bool) string {
 	return strings.Join([]string{e.name, val, h}, "\t")
 }
 
-func history(key string) ([]string, error) {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
+// history returns the parameter history of a value.
+func history(key string, service *ssm.SSM) ([]string, error) {
 
-	ssmsvc := ssm.New(sess, aws.NewConfig())
 	hist := []string{}
 	max := int64(50)
 	decrypt := true
 	in := ssm.GetParameterHistoryInput{MaxResults: &max, Name: &key, WithDecryption: &decrypt}
 	for {
-		out, err := ssmsvc.GetParameterHistory(&in)
+		out, err := service.GetParameterHistory(&in)
 		if err != nil {
 			return []string{}, err
 		}
@@ -245,12 +262,9 @@ func history(key string) ([]string, error) {
 	return hist, nil
 }
 
-func list(s string, showValue, ts, stripPrefix, showHistory bool) ([]string, error) {
-	// build aws session
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-	ssmsvc := ssm.New(sess, aws.NewConfig())
+// list lists a set of parameters matching the substring s.
+func list(s string, showValue, ts, stripPrefix, showHistory bool, service *ssm.SSM) ([]string, error) {
+
 	var next string
 	var n int64 = 50
 
@@ -280,7 +294,7 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool) ([]string, err
 	params := []entry{}
 	// iterate over results
 	for {
-		desc, err := ssmsvc.DescribeParameters(&in)
+		desc, err := service.DescribeParameters(&in)
 		if err != nil {
 			return []string{}, err
 		}
@@ -295,13 +309,13 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool) ([]string, err
 					semChan <- struct{}{}
 
 					go func() {
-						v, err := get(name)
+						v, err := get(name, service)
 						if err != nil {
 							log.Fatal(err)
 						}
 						hist := []string{}
 						if showHistory {
-							hist, err = history(name)
+							hist, err = history(name, service)
 							if err != nil {
 								log.Fatal(err)
 							}
@@ -350,14 +364,10 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool) ([]string, err
 	return vals, nil
 }
 
-func get(key string) (string, error) {
-	sess := session.Must(session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	}))
-
-	ssmsvc := ssm.New(sess, aws.NewConfig())
+// get gets the value of a parameter.
+func get(key string, service *ssm.SSM) (string, error) {
 	withDecryption := true
-	param, err := ssmsvc.GetParameter(&ssm.GetParameterInput{
+	param, err := service.GetParameter(&ssm.GetParameterInput{
 		Name:           &key,
 		WithDecryption: &withDecryption,
 	})
