@@ -6,7 +6,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -33,7 +32,7 @@ var (
 func main() {
 
 	app := cli.NewApp()
-	app.Version = "1.4.1"
+	app.Version = "1.4.2"
 	app.Usage = "simple ssm param store interface"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -86,20 +85,10 @@ func main() {
 				if err != nil {
 					return err
 				}
+				for _, key := range keys {
+					fmt.Println(strings.Join(key, "\t"))
+				}
 
-				// print out parameters
-				w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
-				if secrets && showHistory {
-					fmt.Fprintln(w, "Last Modified\tKey\tValue\tHistory (desc)")
-				} else if secrets {
-					fmt.Fprintln(w, "Last Modified\tKey\tValue")
-				} else {
-					fmt.Fprintln(w, "Last Modified\tKey")
-				}
-				for _, k := range keys {
-					fmt.Fprintln(w, k)
-				}
-				err = w.Flush()
 				return err
 			},
 		},
@@ -222,7 +211,7 @@ type entry struct {
 }
 
 // fmt returns a formatted string with optional timestamp and parameter prefix.
-func (e *entry) fmt(ts, stripPrefix bool) string {
+func (e *entry) fmt(ts, stripPrefix bool) []string {
 	var val string
 	if stripPrefix {
 		s := strings.Split(e.val, "/")
@@ -232,9 +221,9 @@ func (e *entry) fmt(ts, stripPrefix bool) string {
 	}
 	h := strings.Join(e.history, ", ")
 	if ts {
-		return strings.Join([]string{e.t.Format("2006-01-02 15:04:05"), e.name, val, h}, "\t")
+		return []string{e.t.Format("2006-01-02 15:04:05"), e.name, val, h}
 	}
-	return strings.Join([]string{e.name, val, h}, "\t")
+	return []string{e.name, val, h}
 }
 
 // history returns the parameter history of a value.
@@ -263,7 +252,7 @@ func history(key string, service *ssm.SSM) ([]string, error) {
 }
 
 // list lists a set of parameters matching the substring s.
-func list(s string, showValue, ts, stripPrefix, showHistory bool, service *ssm.SSM) ([]string, error) {
+func list(s string, showValue, ts, stripPrefix, showHistory bool, service *ssm.SSM) ([][]string, error) {
 
 	var next string
 	var n int64 = 50
@@ -283,11 +272,13 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool, service *ssm.S
 		in = ssm.DescribeParametersInput{}
 	}
 
-	// blocking semaphore channel to keep concurrency under control
+	// set n workers based on how many requests may happen
 	nworkers := 5
+
 	if showHistory {
 		nworkers = 1
 	}
+	// blocking semaphore channel to keep concurrency under control
 	semChan := make(chan struct{}, nworkers)
 	defer close(semChan)
 
@@ -296,7 +287,7 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool, service *ssm.S
 	for {
 		desc, err := service.DescribeParameters(&in)
 		if err != nil {
-			return []string{}, err
+			return [][]string{}, err
 		}
 		// result channel to store entries from concurrent secret requests
 		resultChan := make(chan entry, len(desc.Parameters))
@@ -356,7 +347,7 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool, service *ssm.S
 		})
 	}
 
-	vals := make([]string, 0)
+	vals := make([][]string, 0)
 	for _, p := range params {
 		vals = append(vals, p.fmt(ts, stripPrefix))
 	}
