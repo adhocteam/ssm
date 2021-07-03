@@ -11,7 +11,7 @@ This is a command line interface to the [AWS SSM Parameter Store](https://docs.a
 To install from source, install a [Go](https://golang.org/dl/) compiler and:
 
 ```
-GO111MODULE=on go get -u github.com/adhocteam/ssm
+go install github.com/adhocteam/ssm@latest
 ```
 
 ### Usage
