@@ -30,7 +30,7 @@ func main() {
 	showHistory := false
 
 	app := cli.NewApp()
-	app.Version = "1.4.2"
+	app.Version = "1.4.3"
 	app.Usage = "simple ssm param store interface"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
