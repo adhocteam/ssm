@@ -14,22 +14,20 @@ import (
 	"github.com/urfave/cli"
 )
 
-var (
-	// show secrets in plaintext
-	secrets = false
-	// aws profile
-	profile = ""
-	// don't print newline on ssm get
-	noNewLine = false
-	// don't print timestamps of params
-	hideTS = false
-	// remove leading environment; /prod/version -> version
-	stripPrefix = false
-	// print tuple of parameter histories
-	showHistory = false
-)
-
 func main() {
+
+	// show secrets in plaintext
+	secrets := false
+	// aws profile
+	profile := ""
+	// don't print newline on ssm get
+	noNewLine := false
+	// don't print timestamps of params
+	hideTS := false
+	// remove leading environment; /prod/version -> version
+	stripPrefix := false
+	// print tuple of parameter histories
+	showHistory := false
 
 	app := cli.NewApp()
 	app.Version = "1.4.2"
@@ -273,7 +271,7 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool, service *ssm.S
 	}
 
 	// set n workers based on how many requests may happen
-	nworkers := 5
+	nworkers := 2
 
 	if showHistory {
 		nworkers = 1
