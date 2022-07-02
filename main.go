@@ -33,7 +33,7 @@ func main() {
 	toCSV := false
 
 	app := cli.NewApp()
-	app.Version = "1.4.3"
+	app.Version = "1.5.0"
 	app.Usage = "simple ssm param store interface"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
