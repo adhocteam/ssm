@@ -94,15 +94,13 @@ func main() {
 
 				if toCSV {
 					w := csv.NewWriter(os.Stdout)
-					if err != nil {
-						return err
-					}
 					for _, k := range keys {
 						err = w.Write(k)
 						if err != nil {
 							return err
 						}
 					}
+					w.Flush()
 					return nil
 
 				}
