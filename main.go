@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
 	"log"
 	"os"
@@ -28,9 +29,11 @@ func main() {
 	stripPrefix := false
 	// print tuple of parameter histories
 	showHistory := false
+	// serialize output to csv
+	toCSV := false
 
 	app := cli.NewApp()
-	app.Version = "1.4.3"
+	app.Version = "1.5.0"
 	app.Usage = "simple ssm param store interface"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -48,6 +51,11 @@ func main() {
 					Name:        "secrets",
 					Usage:       "print out parameter values in plaintext",
 					Destination: &secrets,
+				},
+				cli.BoolFlag{
+					Name:        "csv",
+					Usage:       "serialize output to csv",
+					Destination: &toCSV,
 				},
 				cli.BoolFlag{
 					Name:        "hide-ts",
@@ -82,6 +90,19 @@ func main() {
 				keys, err := list(s, secrets, !hideTS, stripPrefix, showHistory, service)
 				if err != nil {
 					return err
+				}
+
+				if toCSV {
+					w := csv.NewWriter(os.Stdout)
+					for _, k := range keys {
+						err = w.Write(k)
+						if err != nil {
+							return err
+						}
+					}
+					w.Flush()
+					return nil
+
 				}
 				for _, key := range keys {
 					fmt.Println(strings.Join(key, "\t"))
@@ -208,20 +229,24 @@ type entry struct {
 	history []string
 }
 
+func removePrefix(path string) string {
+	s := strings.Split(path, "/")
+	return s[len(s)-1]
+}
+
 // fmt returns a formatted string with optional timestamp and parameter prefix.
 func (e *entry) fmt(ts, stripPrefix bool) []string {
-	var val string
+	var name string
 	if stripPrefix {
-		s := strings.Split(e.val, "/")
-		val = s[len(s)-1]
+		name = removePrefix(e.name)
 	} else {
-		val = e.val
+		name = e.name
 	}
 	h := strings.Join(e.history, ", ")
 	if ts {
-		return []string{e.t.Format("2006-01-02 15:04:05"), e.name, val, h}
+		return []string{e.t.Format("2006-01-02 15:04:05"), name, e.val, h}
 	}
-	return []string{e.name, val, h}
+	return []string{name, e.val, h}
 }
 
 // history returns the parameter history of a value.
