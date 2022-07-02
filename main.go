@@ -238,17 +238,17 @@ func removePrefix(path string) string {
 
 // fmt returns a formatted string with optional timestamp and parameter prefix.
 func (e *entry) fmt(ts, stripPrefix bool) []string {
-	var val string
+	var name string
 	if stripPrefix {
-		val = removePrefix(e.val)
+		name = removePrefix(e.val)
 	} else {
-		val = e.val
+		name = e.val
 	}
 	h := strings.Join(e.history, ", ")
 	if ts {
-		return []string{e.t.Format("2006-01-02 15:04:05"), e.name, val, h}
+		return []string{e.t.Format("2006-01-02 15:04:05"), name, e.val, h}
 	}
-	return []string{e.name, val, h}
+	return []string{name, e.val, h}
 }
 
 // history returns the parameter history of a value.
