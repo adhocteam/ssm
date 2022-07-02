@@ -240,9 +240,9 @@ func removePrefix(path string) string {
 func (e *entry) fmt(ts, stripPrefix bool) []string {
 	var name string
 	if stripPrefix {
-		name = removePrefix(e.val)
+		name = removePrefix(e.name)
 	} else {
-		name = e.val
+		name = e.name
 	}
 	h := strings.Join(e.history, ", ")
 	if ts {
