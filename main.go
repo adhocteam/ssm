@@ -94,7 +94,6 @@ func main() {
 
 				if toCSV {
 					w := csv.NewWriter(os.Stdout)
-					err = w.Write([]string{"date", "key", "value"})
 					if err != nil {
 						return err
 					}
