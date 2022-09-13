@@ -2,9 +2,9 @@
 
 ### About
 
-This is a command line interface to the [AWS SSM Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html). 
+This is a command line interface to the [AWS SSM Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html).
 
-It's designed to be simple and easy to remember, only exposing the commands `get`, `set`, `ls`, and `rm` for parameters. A more featureful alternative is [Chamber](https://github.com/segmentio/chamber).
+It's designed to be simple and easy to remember. A more featureful alternative is [Chamber](https://github.com/segmentio/chamber).
 
 ### Install
 
