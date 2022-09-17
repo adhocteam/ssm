@@ -17,20 +17,15 @@ import (
 
 func main() {
 
-	// show secrets in plaintext
-	secrets := false
-	// aws profile
-	profile := ""
-	// don't print newline on ssm get
-	noNewLine := false
-	// don't print timestamps of params
-	hideTS := false
-	// remove leading environment; /prod/version -> version
-	stripPrefix := false
-	// print tuple of parameter histories
-	showHistory := false
-	// serialize output to csv
-	toCSV := false
+	var (
+		showSecrets    = false
+		awsProfile     = ""
+		noNewlines     = false
+		hideTimestamps = false
+		stripPrefixes  = false
+		showHistory    = false
+		outputCSV      = false
+	)
 
 	app := cli.NewApp()
 	app.Version = "1.5.0"
@@ -39,7 +34,7 @@ func main() {
 		cli.StringFlag{
 			Name:        "profile, p",
 			Usage:       "Specify an AWS profile. Optional. Defaults to AWS_PROFILE.",
-			Destination: &profile,
+			Destination: &awsProfile,
 		},
 	}
 	app.Commands = []cli.Command{
@@ -50,22 +45,22 @@ func main() {
 				cli.BoolFlag{
 					Name:        "secrets",
 					Usage:       "print out parameter values in plaintext",
-					Destination: &secrets,
+					Destination: &showSecrets,
 				},
 				cli.BoolFlag{
 					Name:        "csv",
 					Usage:       "serialize output to csv",
-					Destination: &toCSV,
+					Destination: &outputCSV,
 				},
 				cli.BoolFlag{
 					Name:        "hide-ts",
 					Usage:       "prints keys in alphabetical order without timestamps (good for diffs)",
-					Destination: &hideTS,
+					Destination: &hideTimestamps,
 				},
 				cli.BoolFlag{
 					Name:        "strip-prefix",
 					Usage:       "strips prefix from the variable (also good for diffs)",
-					Destination: &stripPrefix,
+					Destination: &stripPrefixes,
 				},
 				cli.BoolFlag{
 					Name:        "show-history",
@@ -78,7 +73,7 @@ func main() {
 				// create SSM session
 				sess := session.Must(session.NewSessionWithOptions(session.Options{
 					SharedConfigState: session.SharedConfigEnable,
-					Profile:           profile,
+					Profile:           awsProfile,
 				}))
 
 				service := ssm.New(sess, aws.NewConfig())
@@ -87,12 +82,12 @@ func main() {
 				s := c.Args().First()
 
 				// retrieve parameters
-				keys, err := list(s, secrets, !hideTS, stripPrefix, showHistory, service)
+				keys, err := list(s, showSecrets, !hideTimestamps, stripPrefixes, showHistory, service)
 				if err != nil {
 					return err
 				}
 
-				if toCSV {
+				if outputCSV {
 					w := csv.NewWriter(os.Stdout)
 					for _, k := range keys {
 						err = w.Write(k)
@@ -118,14 +113,14 @@ func main() {
 				cli.BoolFlag{
 					Name:        "n",
 					Usage:       "Do not print a trailing newline",
-					Destination: &noNewLine,
+					Destination: &noNewlines,
 				},
 			},
 			Action: func(c *cli.Context) error {
 				// create SSM session
 				sess := session.Must(session.NewSessionWithOptions(session.Options{
 					SharedConfigState: session.SharedConfigEnable,
-					Profile:           profile,
+					Profile:           awsProfile,
 				}))
 
 				service := ssm.New(sess, aws.NewConfig())
@@ -138,7 +133,7 @@ func main() {
 				}
 
 				// print (with or without newline)
-				if noNewLine {
+				if noNewlines {
 					fmt.Print(val)
 				} else {
 					fmt.Println(val)
@@ -154,7 +149,7 @@ func main() {
 				// create SSM session
 				sess := session.Must(session.NewSessionWithOptions(session.Options{
 					SharedConfigState: session.SharedConfigEnable,
-					Profile:           profile,
+					Profile:           awsProfile,
 				}))
 
 				service := ssm.New(sess, aws.NewConfig())
@@ -175,7 +170,7 @@ func main() {
 				// create SSM session
 				sess := session.Must(session.NewSessionWithOptions(session.Options{
 					SharedConfigState: session.SharedConfigEnable,
-					Profile:           profile,
+					Profile:           awsProfile,
 				}))
 
 				service := ssm.New(sess, aws.NewConfig())
