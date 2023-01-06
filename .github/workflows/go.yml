@@ -1,20 +1,21 @@
----
-version: 2
-
+name: Build and test
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 jobs:
-  test:
-    docker:
-      - image: circleci/golang:1.17
+  build:
+    runs-on: ubuntu-latest
     steps:
-      - checkout
+    - uses: actions/checkout@v3
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: 1.19
+    - name: Build and Test
       - run: GO111MODULE=on go get honnef.co/go/tools/cmd/staticcheck
       - run: curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.6.1
       - run: go build -v ./... && go test -v ./...
       - run: staticcheck *.go
       - run: gosec .
-
-workflows:
-  version: 2
-  doit:
-    jobs:
-      - test
