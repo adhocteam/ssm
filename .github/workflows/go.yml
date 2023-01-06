@@ -15,8 +15,10 @@ jobs:
           go-version: "1.19.4"
       - name: Build
         run: go build -v ./... && go test -v ./...
-      - name: Gosec
-        run: curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.6.1 && gosec .
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: ./...
       - uses: dominikh/staticcheck-action@v1.2.0
         with:
           version: "2022.1.1"
