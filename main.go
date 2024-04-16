@@ -381,7 +381,7 @@ func get(key string, service *ssm.SSM) (string, error) {
 		WithDecryption: &withDecryption,
 	})
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error retrieving key %s: %w", key, err)
 	}
 
 	value := *param.Parameter.Value
