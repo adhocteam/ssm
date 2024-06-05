@@ -20,20 +20,13 @@ import (
 func main() {
 
 	var (
-		// print secrets to stdout
-		showSecrets = false
-		// override AWS profile used
-		awsProfile = ""
-		// don't print a trailing newline on ssm get
-		noNewlines = false
-		// don't print timestamps to output for sorting
-		hideTimestamps = false
-		// don't print prefixes of ssm keys
-		stripPrefixes = false
-		// print the history of a key
-		showHistory = false
-		// output the ssm values to csv
-		outputCSV = false
+		showSecrets    = false // print secrets to stdout
+		awsProfile     = ""    // override AWS profile used
+		noNewlines     = false // don't print a trailing newline on ssm get
+		hideTimestamps = false // don't print timestamps to output for sorting
+		stripPrefixes  = false // don't print prefixes of ssm keys
+		showHistory    = false // print the history of a key
+		outputCSV      = false // output the ssm values to csv
 	)
 
 	app := cli.NewApp()
@@ -84,7 +77,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				client := ssm.NewFromConfig(cfg )
+				client := ssm.NewFromConfig(cfg)
 
 				log.Println("fetching ssm keys")
 				s := c.Args().First()
@@ -130,7 +123,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				client := ssm.NewFromConfig(cfg )
+				client := ssm.NewFromConfig(cfg)
 				key := c.Args().First()
 
 				// fetch key
@@ -158,7 +151,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				client := ssm.NewFromConfig(cfg )
+				client := ssm.NewFromConfig(cfg)
 				// set key value pair
 				key := c.Args().First()
 				val := c.Args().Get(1)
@@ -176,7 +169,7 @@ func main() {
 				if err != nil {
 					return err
 				}
-				client := ssm.NewFromConfig(cfg )
+				client := ssm.NewFromConfig(cfg)
 				key := c.Args().First()
 				// delete key
 				err = rm(key, client)
