@@ -1,5 +1,4 @@
 ## SSM
-
 ### About
 
 This is a command line interface to the [AWS SSM Parameter Store](https://docs.aws.amazon.com/systems-manager/latest/userguide/what-is-systems-manager.html).
