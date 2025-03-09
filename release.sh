@@ -3,8 +3,9 @@ set -euxo pipefail
 rm -rf release
 mkdir release
 GOOS=darwin GOARCH=amd64 go build -o release/ssm-darwin-amd64
-sha256sum release/ssm-darwin-amd64 >release/ssm-darwin-amd64.sha
 GOOS=linux GOARCH=amd64 go build -o release/ssm-linux-amd64
-sha256sum release/ssm-darwin-amd64 >release/ssm-linux-amd64.sha
 GOOS=darwin GOARCH=arm64 go build -o release/ssm-darwin-arm64
-sha256sum release/ssm-darwin-arm64 >release/ssm-darwin-arm64.sha
+cd release
+sha256sum ssm-darwin-amd64 >ssm-darwin-amd64.sha
+sha256sum ssm-darwin-amd64 >ssm-linux-amd64.sha
+sha256sum ssm-darwin-arm64 >ssm-darwin-arm64.sha
