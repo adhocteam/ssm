@@ -13,12 +13,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/aws/aws-sdk-go-v2/service/ssm/types"
-
 	"github.com/urfave/cli"
 )
 
 func main() {
-
 	var (
 		showSecrets    = false // print secrets to stdout
 		awsProfile     = ""    // override AWS profile used
@@ -27,8 +25,8 @@ func main() {
 		stripPrefixes  = false // don't print prefixes of ssm keys
 		showHistory    = false // print the history of a key
 		outputCSV      = false // output the ssm values to csv
+		noSecret       = false // set flag for plain text string on set
 	)
-
 	app := cli.NewApp()
 	app.Version = "1.6.0"
 	app.Usage = "simple ssm param store interface"
@@ -71,23 +69,19 @@ func main() {
 				},
 			},
 			Action: func(c *cli.Context) error {
-
 				// create SSM session
 				cfg, err := config.LoadDefaultConfig(context.Background(), config.WithSharedConfigProfile(awsProfile))
 				if err != nil {
 					return err
 				}
 				client := ssm.NewFromConfig(cfg)
-
 				log.Println("fetching ssm keys")
 				s := c.Args().First()
-
 				// retrieve parameters
 				keys, err := list(s, showSecrets, !hideTimestamps, stripPrefixes, showHistory, client)
 				if err != nil {
 					return err
 				}
-
 				if outputCSV {
 					w := csv.NewWriter(os.Stdout)
 					for _, k := range keys {
@@ -98,12 +92,10 @@ func main() {
 					}
 					w.Flush()
 					return nil
-
 				}
 				for _, key := range keys {
 					fmt.Println(strings.Join(key, "\t"))
 				}
-
 				return err
 			},
 		},
@@ -125,13 +117,11 @@ func main() {
 				}
 				client := ssm.NewFromConfig(cfg)
 				key := c.Args().First()
-
 				// fetch key
 				val, err := get(key, client)
 				if err != nil {
 					return err
 				}
-
 				// print (with or without newline)
 				if noNewlines {
 					fmt.Print(val)
@@ -141,10 +131,16 @@ func main() {
 				return nil
 			},
 		},
-
 		{
 			Name:  "set",
 			Usage: "sets ssm k,v pair. overwrites. ex: ssm set /app/prod/version 27",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "no-secret",
+					Usage:       "Set as a plain text String parameter instead of SecureString",
+					Destination: &noSecret,
+				},
+			},
 			Action: func(c *cli.Context) error {
 				// create SSM session
 				cfg, err := config.LoadDefaultConfig(context.Background(), config.WithSharedConfigProfile(awsProfile))
@@ -155,16 +151,14 @@ func main() {
 				// set key value pair
 				key := c.Args().First()
 				val := c.Args().Get(1)
-				err = set(key, val, client)
+				err = set(key, val, noSecret, client)
 				return err
 			},
 		},
-
 		{
 			Name:  "rm",
 			Usage: "removes ssm param. ex: ssm rm /app/prod/param",
 			Action: func(c *cli.Context) error {
-
 				cfg, err := config.LoadDefaultConfig(context.Background(), config.WithSharedConfigProfile(awsProfile))
 				if err != nil {
 					return err
@@ -177,7 +171,6 @@ func main() {
 			},
 		},
 	}
-
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)
@@ -186,18 +179,21 @@ func main() {
 
 // rm deletes a ssm key.
 func rm(key string, client *ssm.Client) error {
-
 	_, err := client.DeleteParameter(context.Background(), &ssm.DeleteParameterInput{
 		Name: &key,
 	})
 	return err
 }
 
-// set sets a ssm key to a value.
-func set(key, val string, client *ssm.Client) error {
-
+// set sets a ssm key to a value, optional plaintext.
+func set(key, val string, noSecret bool, client *ssm.Client) error {
 	overwrite := true
-	ptype := types.ParameterTypeSecureString
+	var ptype types.ParameterType
+	if noSecret {
+		ptype = types.ParameterTypeString
+	} else {
+		ptype = types.ParameterTypeSecureString
+	}
 	tier := types.ParameterTierStandard
 	if len([]byte(val)) > 4096 {
 		tier = "Advanced"
@@ -242,7 +238,6 @@ func (e *entry) fmt(ts, stripPrefix bool) []string {
 
 // history returns the parameter history of a value.
 func history(key string, client *ssm.Client) ([]string, error) {
-
 	hist := []string{}
 	max := int32(50)
 	decrypt := true
@@ -260,23 +255,19 @@ func history(key string, client *ssm.Client) ([]string, error) {
 			break
 		}
 		in = ssm.GetParameterHistoryInput{MaxResults: &max, NextToken: out.NextToken, Name: &key, WithDecryption: &decrypt}
-
 	}
 	return hist, nil
 }
 
 // list lists a set of parameters matching the substring s.
 func list(s string, showValue, ts, stripPrefix, showHistory bool, client *ssm.Client) ([][]string, error) {
-
 	var next string
 	var n int32 = 50
-
 	// set name filters for AWS
 	k := "Name"
 	filterOption := "Contains"
 	filter := types.ParameterStringFilter{Key: &k, Option: &filterOption, Values: []string{s}}
 	var in ssm.DescribeParametersInput
-
 	// if filter specified, add name filters
 	if s != "" {
 		in = ssm.DescribeParametersInput{
@@ -285,17 +276,14 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool, client *ssm.Cl
 	} else {
 		in = ssm.DescribeParametersInput{}
 	}
-
 	// set n workers based on how many requests may happen
 	nworkers := 2
-
 	if showHistory {
 		nworkers = 1
 	}
 	// blocking semaphore channel to keep concurrency under control
 	semChan := make(chan struct{}, nworkers)
 	defer close(semChan)
-
 	params := []entry{}
 	// iterate over results
 	for {
@@ -312,7 +300,6 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool, client *ssm.Cl
 				date := p.LastModifiedDate
 				if showValue {
 					semChan <- struct{}{}
-
 					go func() {
 						v, err := get(name, client)
 						if err != nil {
@@ -326,7 +313,6 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool, client *ssm.Cl
 							}
 						}
 						resultChan <- entry{date, name, v, hist}
-
 						<-semChan
 					}()
 				} else {
@@ -338,7 +324,6 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool, client *ssm.Cl
 			p := <-resultChan
 			params = append(params, p)
 		}
-
 		if desc.NextToken != nil {
 			next = *desc.NextToken
 			if s != "" {
@@ -350,7 +335,6 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool, client *ssm.Cl
 			break
 		}
 	}
-
 	if ts {
 		sort.Slice(params, func(i, j int) bool {
 			return params[i].t.Before(*params[j].t)
@@ -360,12 +344,10 @@ func list(s string, showValue, ts, stripPrefix, showHistory bool, client *ssm.Cl
 			return params[i].name < params[j].name
 		})
 	}
-
 	vals := make([][]string, 0)
 	for _, p := range params {
 		vals = append(vals, p.fmt(ts, stripPrefix))
 	}
-
 	return vals, nil
 }
 
@@ -379,7 +361,6 @@ func get(key string, client *ssm.Client) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("error retrieving key %s: %w", key, err)
 	}
-
 	value := *param.Parameter.Value
 	return value, nil
 }
